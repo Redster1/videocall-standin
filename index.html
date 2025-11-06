@@ -351,6 +351,10 @@
         <div class="control-group">
             <label>Visualization Style</label>
             <select id="visualizationStyle">
+                <option value="circular">Circular Bars (Original)</option>
+                <option value="waveform">Waveform Oscilloscope (Original)</option>
+                <option value="particles">Particles (Original)</option>
+                <option value="rings">Pulsing Rings (Original)</option>
                 <option value="bar">Bar Chart</option>
                 <option value="line">Line Graph</option>
                 <option value="area">Area Graph</option>
@@ -438,7 +442,7 @@
             sensitivity: 1.0,
             smoothing: 0.8,
             color: '#667eea',
-            visualizationStyle: 'bar',
+            visualizationStyle: 'circular',
             micEnabled: true,
             imageSize: 200,
             imageX: 0,
@@ -623,13 +627,17 @@
         const patternOpacitySlider = document.getElementById('patternOpacity');
 
         function generateHexagonPattern() {
-            const size = 40;
+            const size = 30;
+            const w = size * 2;
+            const h = size * Math.sqrt(3);
             const svg = `
-                <svg width="${size * 2}" height="${size * 2}" xmlns="http://www.w3.org/2000/svg">
+                <svg width="${w * 1.5}" height="${h}" xmlns="http://www.w3.org/2000/svg">
                     <defs>
-                        <pattern id="hexagons" width="${size * 1.5}" height="${size * Math.sqrt(3)}" patternUnits="userSpaceOnUse">
-                            <path d="M${size / 2},0 L${size},${size * Math.sqrt(3) / 4} L${size},${size * 3 * Math.sqrt(3) / 4} L${size / 2},${size * Math.sqrt(3)} L0,${size * 3 * Math.sqrt(3) / 4} L0,${size * Math.sqrt(3) / 4} Z"
-                                  fill="none" stroke="white" stroke-width="2"/>
+                        <pattern id="hexagons" width="${w * 1.5}" height="${h}" patternUnits="userSpaceOnUse">
+                            <path d="M${size},0 L${size * 2},${h / 4} L${size * 2},${3 * h / 4} L${size},${h} L0,${3 * h / 4} L0,${h / 4} Z"
+                                  fill="none" stroke="white" stroke-width="1.5"/>
+                            <path d="M${size + w * 0.75},${h / 2} L${size * 2 + w * 0.75},${h / 4 + h / 2} L${size * 2 + w * 0.75},${3 * h / 4 + h / 2} L${size + w * 0.75},${h + h / 2} L${w * 0.75},${3 * h / 4 + h / 2} L${w * 0.75},${h / 4 + h / 2} Z"
+                                  fill="none" stroke="white" stroke-width="1.5"/>
                         </pattern>
                     </defs>
                     <rect width="100%" height="100%" fill="url(#hexagons)"/>
@@ -945,6 +953,137 @@
         const imageCenterX = () => centerX + config.imageX;
         const imageCenterY = () => centerY + config.imageY;
 
+        // ORIGINAL VISUALIZATIONS (Image-aware)
+
+        // Original 1. Circular Bars - Radial frequency equalizer
+        function drawCircularBars() {
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const imgCenterX = imageCenterX();
+            const imgCenterY = imageCenterY();
+            const bars = 100;
+            const radius = config.imageSize / 2 + 20;
+            const maxBarHeight = 150;
+
+            for (let i = 0; i < bars; i++) {
+                const dataIndex = Math.floor((i / bars) * bufferLength);
+                const value = dataArray[dataIndex] * config.sensitivity;
+                const barHeight = (value / 255) * maxBarHeight;
+
+                const angle = (i / bars) * Math.PI * 2;
+                const x1 = imgCenterX + Math.cos(angle) * radius;
+                const y1 = imgCenterY + Math.sin(angle) * radius;
+                const x2 = imgCenterX + Math.cos(angle) * (radius + barHeight);
+                const y2 = imgCenterY + Math.sin(angle) * (radius + barHeight);
+
+                const alpha = 0.3 + (barHeight / maxBarHeight) * 0.7;
+                ctx.strokeStyle = hexToRgba(config.color, alpha);
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+        }
+
+        // Original 2. Waveform - Oscilloscope view
+        function drawWaveform() {
+            analyser.getByteTimeDomainData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const sliceWidth = width / bufferLength;
+            const amplitude = 200 * config.sensitivity;
+
+            ctx.strokeStyle = config.color;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+
+            for (let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = (v * amplitude) + centerY;
+                const x = i * sliceWidth;
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+
+            ctx.stroke();
+        }
+
+        // Original 3. Particles - Emanating particle system
+        let particles = [];
+        function drawParticles() {
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+
+            const imgCenterX = imageCenterX();
+            const imgCenterY = imageCenterY();
+
+            const avgVolume = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
+            if (avgVolume > 50 && particles.length < 200) {
+                for (let i = 0; i < 3; i++) {
+                    particles.push({
+                        x: imgCenterX,
+                        y: imgCenterY,
+                        vx: (Math.random() - 0.5) * 5,
+                        vy: (Math.random() - 0.5) * 5,
+                        size: Math.random() * 3 + 1,
+                        life: 1.0
+                    });
+                }
+            }
+
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.01;
+
+                const alpha = p.life * 0.8;
+                ctx.fillStyle = hexToRgba(config.color, alpha);
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                return p.life > 0;
+            });
+        }
+
+        // Original 4. Pulsing Rings - Concentric reactive circles
+        function drawRings() {
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const imgCenterX = imageCenterX();
+            const imgCenterY = imageCenterY();
+
+            const avgVolume = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
+            const scale = 1 + (avgVolume / 255) * config.sensitivity * 0.5;
+            const baseRadius = config.imageSize / 2 + 20;
+
+            for (let i = 0; i < 5; i++) {
+                const radius = baseRadius + i * 40;
+                const scaledRadius = radius * scale;
+                const alpha = 0.6 - i * 0.1;
+
+                ctx.strokeStyle = hexToRgba(config.color, alpha);
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(imgCenterX, imgCenterY, scaledRadius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        // NEW VISUALIZATIONS
+
         // 1. Bar Chart - Classic vertical frequency bars
         function drawBarChart() {
             analyser.getByteFrequencyData(dataArray);
@@ -952,7 +1091,8 @@
 
             const bars = 64;
             const barWidth = width / bars;
-            const maxHeight = height / 2;
+            const bottomPadding = 50;
+            const maxHeight = (height - bottomPadding) / 2;
 
             for (let i = 0; i < bars; i++) {
                 const dataIndex = Math.floor((i / bars) * bufferLength);
@@ -960,9 +1100,9 @@
                 const barHeight = (value / 255) * maxHeight;
 
                 const x = i * barWidth;
-                const y = height - barHeight;
+                const y = height - bottomPadding - barHeight;
 
-                const gradient = ctx.createLinearGradient(x, y, x, height);
+                const gradient = ctx.createLinearGradient(x, y, x, height - bottomPadding);
                 gradient.addColorStop(0, config.color);
                 gradient.addColorStop(1, hexToRgba(config.color, 0.3));
 
@@ -1086,15 +1226,17 @@
             ctx.fillStyle = 'rgba(10, 10, 10, 0.1)';
             ctx.fillRect(0, 0, width, height);
 
+            const bottomPadding = 50;
+            const floorY = height - bottomPadding;
             const avgVolume = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
 
-            // Generate flames from bottom
+            // Generate flames from bottom (above padding)
             if (avgVolume > 30 && flames.length < 300) {
                 for (let i = 0; i < 5; i++) {
                     const x = Math.random() * width;
                     flames.push({
                         x: x,
-                        y: height,
+                        y: floorY,
                         vx: (Math.random() - 0.5) * 2,
                         vy: -2 - Math.random() * 3 - (avgVolume / 50),
                         size: Math.random() * 4 + 2,
@@ -1404,6 +1546,18 @@
             }
 
             switch (config.visualizationStyle) {
+                case 'circular':
+                    drawCircularBars();
+                    break;
+                case 'waveform':
+                    drawWaveform();
+                    break;
+                case 'particles':
+                    drawParticles();
+                    break;
+                case 'rings':
+                    drawRings();
+                    break;
                 case 'bar':
                     drawBarChart();
                     break;
@@ -1519,6 +1673,7 @@
         document.getElementById('visualizationStyle').addEventListener('change', (e) => {
             config.visualizationStyle = e.target.value;
             // Reset state arrays when changing style
+            particles = [];
             flames = [];
             heatmapData = [];
             waterfallData = [];
