@@ -628,24 +628,32 @@
 
         function generateHexagonPattern() {
             const s = 20; // side length
-            const h = s * Math.sqrt(3); // height (flat to flat)
+            const h = s * Math.sqrt(3); // height (flat to flat) for flat-top hexagon
             const patternWidth = s * 3; // horizontal repeat: 3s
             const patternHeight = h * 2; // vertical repeat: 2 rows
+
+            // Helper to create flat-top hexagon centered at (cx, cy)
+            const flatTopHex = (cx, cy) => {
+                return `${cx - 0.5*s},${cy - 0.5*h} ${cx + 0.5*s},${cy - 0.5*h} ${cx + s},${cy} ${cx + 0.5*s},${cy + 0.5*h} ${cx - 0.5*s},${cy + 0.5*h} ${cx - s},${cy}`;
+            };
+
+            // Helper to create pointy-top hexagon (rotated 30°) centered at (cx, cy)
+            const pointyTopHex = (cx, cy) => {
+                return `${cx},${cy - s} ${cx + 0.5*h},${cy - 0.5*s} ${cx + 0.5*h},${cy + 0.5*s} ${cx},${cy + s} ${cx - 0.5*h},${cy + 0.5*s} ${cx - 0.5*h},${cy - 0.5*s}`;
+            };
 
             const svg = `
                 <svg width="${patternWidth}" height="${patternHeight}" xmlns="http://www.w3.org/2000/svg">
                     <defs>
                         <pattern id="hexagons" width="${patternWidth}" height="${patternHeight}" patternUnits="userSpaceOnUse">
-                            <!-- Row 1: Single hexagon centered at (1.5s, 0.5h) -->
-                            <polygon points="${s},0 ${s * 2},0 ${s * 2.5},${h * 0.5} ${s * 2},${h} ${s},${h} ${s * 0.5},${h * 0.5}"
+                            <!-- Row 1: Flat-top hexagon -->
+                            <polygon points="${flatTopHex(1.5*s, 0.5*h)}"
                                      fill="none" stroke="white" stroke-width="1.5"/>
 
-                            <!-- Row 2: Hexagon at left edge, centered at (0, 1.5h) - nestles into gap -->
-                            <polygon points="${s * -0.5},${h} ${s * 0.5},${h} ${s},${h * 1.5} ${s * 0.5},${h * 2} ${s * -0.5},${h * 2} ${s * -1},${h * 1.5}"
+                            <!-- Row 2: Pointy-top hexagons (rotated 30°) at left and right -->
+                            <polygon points="${pointyTopHex(0, 1.5*h)}"
                                      fill="none" stroke="white" stroke-width="1.5"/>
-
-                            <!-- Row 2: Hexagon at right edge, centered at (3s, 1.5h) - nestles into gap -->
-                            <polygon points="${s * 2.5},${h} ${s * 3.5},${h} ${s * 4},${h * 1.5} ${s * 3.5},${h * 2} ${s * 2.5},${h * 2} ${s * 2},${h * 1.5}"
+                            <polygon points="${pointyTopHex(3*s, 1.5*h)}"
                                      fill="none" stroke="white" stroke-width="1.5"/>
                         </pattern>
                     </defs>
