@@ -627,19 +627,21 @@
         const patternOpacitySlider = document.getElementById('patternOpacity');
 
         function generateHexagonPattern() {
-            const s = 20; // side length
-            const w = s * 2; // width
-            const h = s * Math.sqrt(3); // height
+            const s = 15; // side length
+            const h = s * Math.sqrt(3); // height (flat to flat)
+            const patternWidth = s * 3; // horizontal spacing
+            const patternHeight = h * 2; // vertical spacing (two rows)
+
             const svg = `
-                <svg width="${w * 1.5}" height="${h * 2}" xmlns="http://www.w3.org/2000/svg">
+                <svg width="${patternWidth}" height="${patternHeight}" xmlns="http://www.w3.org/2000/svg">
                     <defs>
-                        <pattern id="hexagons" width="${w * 1.5}" height="${h * 2}" patternUnits="userSpaceOnUse">
+                        <pattern id="hexagons" width="${patternWidth}" height="${patternHeight}" patternUnits="userSpaceOnUse">
+                            <!-- First row: hexagon centered at (s, h/2) -->
                             <polygon points="${s * 0.5},0 ${s * 1.5},0 ${s * 2},${h / 2} ${s * 1.5},${h} ${s * 0.5},${h} 0,${h / 2}"
-                                     fill="none" stroke="white" stroke-width="1.5"/>
-                            <polygon points="${s * 0.5 + w * 1.5},0 ${s * 1.5 + w * 1.5},0 ${s * 2 + w * 1.5},${h / 2} ${s * 1.5 + w * 1.5},${h} ${s * 0.5 + w * 1.5},${h} ${w * 1.5},${h / 2}"
-                                     fill="none" stroke="white" stroke-width="1.5"/>
-                            <polygon points="${s * 0.5 + w * 0.75},${h} ${s * 1.5 + w * 0.75},${h} ${s * 2 + w * 0.75},${h + h / 2} ${s * 1.5 + w * 0.75},${h * 2} ${s * 0.5 + w * 0.75},${h * 2} ${w * 0.75},${h + h / 2}"
-                                     fill="none" stroke="white" stroke-width="1.5"/>
+                                     fill="none" stroke="white" stroke-width="1"/>
+                            <!-- Second row: hexagon centered at (2.5s, 1.5h) -->
+                            <polygon points="${s * 2},${h} ${s * 3},${h} ${s * 3.5},${h * 1.5} ${s * 3},${h * 2} ${s * 2},${h * 2} ${s * 1.5},${h * 1.5}"
+                                     fill="none" stroke="white" stroke-width="1"/>
                         </pattern>
                     </defs>
                     <rect width="100%" height="100%" fill="url(#hexagons)"/>
