@@ -1447,6 +1447,7 @@
         const status = document.getElementById('status');
         let hideTimeout;
         let isControlsVisible = false;
+        let isHoveringControls = false;
 
         function showControls() {
             controls.classList.add('visible');
@@ -1456,10 +1457,13 @@
 
             clearTimeout(hideTimeout);
             hideTimeout = setTimeout(() => {
-                controls.classList.remove('visible');
-                status.classList.remove('visible');
-                document.body.classList.remove('show-cursor');
-                isControlsVisible = false;
+                // Only hide if not hovering over controls
+                if (!isHoveringControls) {
+                    controls.classList.remove('visible');
+                    status.classList.remove('visible');
+                    document.body.classList.remove('show-cursor');
+                    isControlsVisible = false;
+                }
             }, 1000);
         }
 
@@ -1472,6 +1476,23 @@
                 }
             }, duration);
         }
+
+        // Track when mouse enters/leaves controls
+        controls.addEventListener('mouseenter', () => {
+            isHoveringControls = true;
+            clearTimeout(hideTimeout);
+        });
+
+        controls.addEventListener('mouseleave', () => {
+            isHoveringControls = false;
+            // Restart hide timer when leaving controls
+            hideTimeout = setTimeout(() => {
+                controls.classList.remove('visible');
+                status.classList.remove('visible');
+                document.body.classList.remove('show-cursor');
+                isControlsVisible = false;
+            }, 1000);
+        });
 
         document.addEventListener('mousemove', showControls);
         document.addEventListener('keydown', showControls);
