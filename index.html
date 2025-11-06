@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Call Stand-In</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            overflow: hidden;
+            cursor: none;
+        }
+
+        body.show-cursor {
+            cursor: default;
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #1a1a2e;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        #profileContainer {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            pointer-events: auto;
+            cursor: grab;
+            transition: none;
+        }
+
+        #profileContainer.dragging {
+            cursor: grabbing;
+        }
+
+        #profileContainer.no-transition {
+            transition: none;
+        }
+
+        #profileImage {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+            display: none;
+        }
+
+        #profileImage.loaded {
+            display: block;
+        }
+
+        #profilePlaceholder {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 14px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #profilePlaceholder.hidden {
+            display: none;
+        }
+
+        #controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(26, 26, 46, 0.95);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 100;
+            min-width: 280px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #controls::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #controls::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        #controls::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 4px;
+        }
+
+        #controls::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.7);
+        }
+
+        #controls.visible {
+            opacity: 1;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-btn {
+            width: 100%;
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            text-align: center;
+        }
+
+        .file-upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            border: none;
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: transparent;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            outline: none;
+        }
+
+        select option {
+            background: #1a1a2e;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            margin-top: 5px;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+        }
+
+        .value-display {
+            display: inline-block;
+            float: right;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 11px;
+        }
+
+        #status {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(26, 26, 46, 0.95);
+            padding: 12px 24px;
+            border-radius: 25px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #status.visible {
+            opacity: 1;
+        }
+
+        .hint {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 14px;
+            text-align: center;
+            z-index: 5;
+            opacity: 0;
+            animation: fadeInOut 3s ease-in-out;
+            pointer-events: none;
+        }
+
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+
+        .remove-image-btn {
+            background: rgba(220, 38, 38, 0.8);
+            margin-top: 10px;
+        }
+
+        .remove-image-btn:hover {
+            background: rgba(220, 38, 38, 1);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="patternOverlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1; opacity: 0.15;"></div>
+
+    <div id="profileContainer">
+        <img id="profileImage" alt="Profile">
+        <div id="profilePlaceholder">Upload a photo to get started</div>
+    </div>
+
+    <div id="controls">
+        <div class="control-group">
+            <label>Profile Picture</label>
+            <input type="file" id="imageUpload" accept="image/*">
+            <label for="imageUpload" class="file-upload-btn">Upload Photo</label>
+            <button id="removeImage" class="remove-image-btn" style="display: none;">Remove Photo</button>
+        </div>
+
+        <div class="control-group">
+            <label>
+                Image Size (px)
+                <span class="value-display" id="imageSizeValue">200</span>
+            </label>
+            <input type="range" id="imageSizeSlider" min="50" max="1080" value="200">
+            <input type="number" id="imageSizeInput" min="10" max="5000" value="200" style="width: 100%; margin-top: 8px; padding: 8px; background: rgba(255, 255, 255, 0.05); color: white; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; font-size: 13px;">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Horizontal Position
+                <span class="value-display" id="imageXValue">0</span>
+            </label>
+            <input type="range" id="imageX" min="-800" max="800" value="0">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Vertical Position
+                <span class="value-display" id="imageYValue">0</span>
+            </label>
+            <input type="range" id="imageY" min="-500" max="500" value="0">
+        </div>
+
+        <div class="control-group">
+            <button id="resetPosition">Reset Position & Size</button>
+        </div>
+
+        <div class="control-group">
+            <label>Visualization Style</label>
+            <select id="visualizationStyle">
+                <option value="circular">Circular Bars (Original)</option>
+                <option value="waveform">Waveform Oscilloscope (Original)</option>
+                <option value="particles">Particles (Original)</option>
+                <option value="rings">Pulsing Rings (Original)</option>
+                <option value="bar">Bar Chart</option>
+                <option value="line">Line Graph</option>
+                <option value="area">Area Graph</option>
+                <option value="histogram">Histogram</option>
+                <option value="flame">Flame Graph</option>
+                <option value="heatmap">Heatmap / Spectrogram</option>
+                <option value="waterfall">Waterfall Plot</option>
+                <option value="radar">Radar / Spider Chart</option>
+                <option value="donut">Donut / Pie Chart</option>
+                <option value="bubble">Bubble Chart</option>
+                <option value="stream">Streamgraph</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>
+                Sensitivity
+                <span class="value-display" id="sensitivityValue">100%</span>
+            </label>
+            <input type="range" id="sensitivity" min="10" max="200" value="100">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Smoothing
+                <span class="value-display" id="smoothingValue">80%</span>
+            </label>
+            <input type="range" id="smoothing" min="0" max="100" value="80">
+        </div>
+
+        <div class="control-group">
+            <label>Visualization Color</label>
+            <input type="color" id="colorPicker" value="#667eea">
+        </div>
+
+        <div class="control-group">
+            <button id="micToggle" class="active">Microphone: ON</button>
+        </div>
+
+        <div class="control-group">
+            <label>Background Image</label>
+            <input type="file" id="backgroundUpload" accept="image/*">
+            <label for="backgroundUpload" class="file-upload-btn">Upload Background</label>
+            <button id="removeBackground" class="remove-image-btn" style="display: none;">Remove Background</button>
+        </div>
+
+        <div class="control-group">
+            <label>Background Color</label>
+            <input type="color" id="backgroundColorPicker" value="#1a1a2e">
+        </div>
+
+        <div class="control-group">
+            <label>Background Pattern</label>
+            <select id="backgroundPattern">
+                <option value="none">None</option>
+                <option value="hexagons">Hexagons</option>
+                <option value="triangles">Triangles</option>
+                <option value="grid">Grid</option>
+                <option value="dots">Dot Grid</option>
+                <option value="circles">Circles</option>
+                <option value="waves">Waves</option>
+                <option value="stripes">Diagonal Stripes</option>
+                <option value="crosshatch">Crosshatch</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>
+                Pattern Opacity
+                <span class="value-display" id="patternOpacityValue">15%</span>
+            </label>
+            <input type="range" id="patternOpacity" min="0" max="50" value="15">
+        </div>
+
+        <div class="control-group">
+            <button id="fullscreenToggle">Enter Fullscreen</button>
+        </div>
+    </div>
+
+    <div id="status">Press any key or move mouse to show controls</div>
+
+    <script>
+        // Configuration
+        const config = {
+            sensitivity: 1.0,
+            smoothing: 0.8,
+            color: '#667eea',
+            visualizationStyle: 'circular',
+            micEnabled: true,
+            imageSize: 200,
+            imageX: 0,
+            imageY: 0,
+            backgroundColor: '#1a1a2e',
+            backgroundImage: null,
+            backgroundPattern: 'none',
+            patternOpacity: 0.15
+        };
+
+        // Canvas setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, centerX, centerY;
+
+        function resizeCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            centerX = width / 2;
+            centerY = height / 2;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Audio setup
+        let audioContext;
+        let analyser;
+        let microphone;
+        let dataArray;
+        let bufferLength;
+        let animationId;
+
+        async function initAudio() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                microphone = audioContext.createMediaStreamSource(stream);
+
+                analyser.fftSize = 256;
+                analyser.smoothingTimeConstant = config.smoothing;
+                bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+
+                microphone.connect(analyser);
+
+                showStatus('Microphone connected!', 2000);
+                animate();
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                showStatus('Microphone access denied. Please allow microphone access.', 5000);
+            }
+        }
+
+        // Image handling
+        const imageUpload = document.getElementById('imageUpload');
+        const profileImage = document.getElementById('profileImage');
+        const profilePlaceholder = document.getElementById('profilePlaceholder');
+        const removeImageBtn = document.getElementById('removeImage');
+
+        // Load saved image from localStorage
+        function loadSavedImage() {
+            const savedImage = localStorage.getItem('profileImage');
+            if (savedImage) {
+                profileImage.src = savedImage;
+                profileImage.classList.add('loaded');
+                profilePlaceholder.classList.add('hidden');
+                removeImageBtn.style.display = 'block';
+            }
+        }
+
+        imageUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Create a canvas to crop the image to a square
+                        const cropCanvas = document.createElement('canvas');
+                        const cropCtx = cropCanvas.getContext('2d');
+                        const size = Math.min(img.width, img.height);
+                        cropCanvas.width = size;
+                        cropCanvas.height = size;
+
+                        const sx = (img.width - size) / 2;
+                        const sy = (img.height - size) / 2;
+                        cropCtx.drawImage(img, sx, sy, size, size, 0, 0, size, size);
+
+                        const croppedImage = cropCanvas.toDataURL('image/jpeg', 0.8);
+                        profileImage.src = croppedImage;
+                        profileImage.classList.add('loaded');
+                        profilePlaceholder.classList.add('hidden');
+                        removeImageBtn.style.display = 'block';
+
+                        // Save to localStorage
+                        localStorage.setItem('profileImage', croppedImage);
+                        showStatus('Photo uploaded successfully!', 2000);
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        removeImageBtn.addEventListener('click', () => {
+            profileImage.src = '';
+            profileImage.classList.remove('loaded');
+            profilePlaceholder.classList.remove('hidden');
+            removeImageBtn.style.display = 'none';
+            localStorage.removeItem('profileImage');
+            imageUpload.value = '';
+            showStatus('Photo removed', 2000);
+        });
+
+        // Background handling
+        const backgroundUpload = document.getElementById('backgroundUpload');
+        const removeBackgroundBtn = document.getElementById('removeBackground');
+        const backgroundColorPicker = document.getElementById('backgroundColorPicker');
+
+        function updateBackground() {
+            if (config.backgroundImage) {
+                canvas.style.backgroundImage = `url(${config.backgroundImage})`;
+                canvas.style.backgroundColor = '';
+            } else {
+                canvas.style.backgroundImage = '';
+                canvas.style.backgroundColor = config.backgroundColor;
+            }
+        }
+
+        function loadSavedBackground() {
+            const savedBgImage = localStorage.getItem('backgroundImage');
+            const savedBgColor = localStorage.getItem('backgroundColor');
+
+            if (savedBgImage) {
+                config.backgroundImage = savedBgImage;
+                removeBackgroundBtn.style.display = 'block';
+            }
+            if (savedBgColor) {
+                config.backgroundColor = savedBgColor;
+                backgroundColorPicker.value = savedBgColor;
+            }
+
+            updateBackground();
+        }
+
+        backgroundUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    config.backgroundImage = event.target.result;
+                    localStorage.setItem('backgroundImage', config.backgroundImage);
+                    removeBackgroundBtn.style.display = 'block';
+                    updateBackground();
+                    showStatus('Background uploaded successfully!', 2000);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        removeBackgroundBtn.addEventListener('click', () => {
+            config.backgroundImage = null;
+            localStorage.removeItem('backgroundImage');
+            backgroundUpload.value = '';
+            removeBackgroundBtn.style.display = 'none';
+            updateBackground();
+            showStatus('Background removed', 2000);
+        });
+
+        backgroundColorPicker.addEventListener('input', (e) => {
+            config.backgroundColor = e.target.value;
+            localStorage.setItem('backgroundColor', config.backgroundColor);
+            if (!config.backgroundImage) {
+                updateBackground();
+            }
+        });
+
+        // Background pattern generation
+        const patternOverlay = document.getElementById('patternOverlay');
+        const backgroundPatternSelect = document.getElementById('backgroundPattern');
+        const patternOpacitySlider = document.getElementById('patternOpacity');
+
+        function generateHexagonPattern() {
+            const s = 20; // side length
+            const h = s * Math.sqrt(3); // height (flat to flat) for flat-top hexagon
+            const patternWidth = s * 3; // horizontal repeat: 3s for offset pattern
+            const patternHeight = h; // vertical repeat: h (contains 2 rows spaced h/2 apart)
+
+            // Helper to create flat-top hexagon centered at (cx, cy)
+            const flatTopHex = (cx, cy) => {
+                return `${cx - 0.5*s},${cy - 0.5*h} ${cx + 0.5*s},${cy - 0.5*h} ${cx + s},${cy} ${cx + 0.5*s},${cy + 0.5*h} ${cx - 0.5*s},${cy + 0.5*h} ${cx - s},${cy}`;
+            };
+
+            const svg = `
+                <svg width="${patternWidth}" height="${patternHeight}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="hexagons" width="${patternWidth}" height="${patternHeight}" patternUnits="userSpaceOnUse">
+                            <!-- Row 1: Flat-top hexagon at even row position -->
+                            <polygon points="${flatTopHex(1.5*s, 0)}"
+                                     fill="none" stroke="white" stroke-width="1.5"/>
+
+                            <!-- Row 2: Flat-top hexagons at odd row position (offset by 1.5s horizontally, h/2 vertically) -->
+                            <polygon points="${flatTopHex(0, h/2)}"
+                                     fill="none" stroke="white" stroke-width="1.5"/>
+                            <polygon points="${flatTopHex(3*s, h/2)}"
+                                     fill="none" stroke="white" stroke-width="1.5"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#hexagons)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateTrianglePattern() {
+            const size = 50;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="triangles" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+                            <path d="M0,${size} L${size / 2},0 L${size},${size} Z" fill="none" stroke="white" stroke-width="2"/>
+                            <path d="M${size / 2},0 L${size},${size} L${size * 1.5},0" fill="none" stroke="white" stroke-width="2"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#triangles)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateGridPattern() {
+            const size = 40;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="grid" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+                            <line x1="0" y1="0" x2="${size}" y2="0" stroke="white" stroke-width="1"/>
+                            <line x1="0" y1="0" x2="0" y2="${size}" stroke="white" stroke-width="1"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#grid)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateDotGridPattern() {
+            const size = 30;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="dots" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+                            <circle cx="${size / 2}" cy="${size / 2}" r="2" fill="white"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#dots)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateCirclePattern() {
+            const size = 60;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="circles" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+                            <circle cx="${size / 2}" cy="${size / 2}" r="${size / 3}" fill="none" stroke="white" stroke-width="2"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#circles)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateWavePattern() {
+            const size = 80;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="waves" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+                            <path d="M0,${size / 2} Q${size / 4},${size / 4} ${size / 2},${size / 2} T${size},${size / 2}"
+                                  fill="none" stroke="white" stroke-width="2"/>
+                            <path d="M0,${size} Q${size / 4},${size * 0.75} ${size / 2},${size} T${size},${size}"
+                                  fill="none" stroke="white" stroke-width="2"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#waves)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateStripesPattern() {
+            const size = 40;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="stripes" width="${size}" height="${size}" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                            <line x1="0" y1="0" x2="0" y2="${size}" stroke="white" stroke-width="2"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#stripes)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateCrosshatchPattern() {
+            const size = 40;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="crosshatch" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+                            <line x1="0" y1="0" x2="${size}" y2="${size}" stroke="white" stroke-width="1"/>
+                            <line x1="${size}" y1="0" x2="0" y2="${size}" stroke="white" stroke-width="1"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#crosshatch)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function updatePattern() {
+            const pattern = config.backgroundPattern;
+
+            if (pattern === 'none') {
+                patternOverlay.style.backgroundImage = '';
+                return;
+            }
+
+            let patternUrl;
+            switch (pattern) {
+                case 'hexagons':
+                    patternUrl = generateHexagonPattern();
+                    break;
+                case 'triangles':
+                    patternUrl = generateTrianglePattern();
+                    break;
+                case 'grid':
+                    patternUrl = generateGridPattern();
+                    break;
+                case 'dots':
+                    patternUrl = generateDotGridPattern();
+                    break;
+                case 'circles':
+                    patternUrl = generateCirclePattern();
+                    break;
+                case 'waves':
+                    patternUrl = generateWavePattern();
+                    break;
+                case 'stripes':
+                    patternUrl = generateStripesPattern();
+                    break;
+                case 'crosshatch':
+                    patternUrl = generateCrosshatchPattern();
+                    break;
+            }
+
+            patternOverlay.style.backgroundImage = `url("${patternUrl}")`;
+            patternOverlay.style.opacity = config.patternOpacity;
+        }
+
+        function loadSavedPattern() {
+            const savedPattern = localStorage.getItem('backgroundPattern');
+            const savedOpacity = localStorage.getItem('patternOpacity');
+
+            if (savedPattern) {
+                config.backgroundPattern = savedPattern;
+                backgroundPatternSelect.value = savedPattern;
+            }
+            if (savedOpacity) {
+                config.patternOpacity = parseFloat(savedOpacity);
+                patternOpacitySlider.value = config.patternOpacity * 100;
+                document.getElementById('patternOpacityValue').textContent = Math.round(config.patternOpacity * 100) + '%';
+            }
+
+            updatePattern();
+        }
+
+        backgroundPatternSelect.addEventListener('change', (e) => {
+            config.backgroundPattern = e.target.value;
+            localStorage.setItem('backgroundPattern', config.backgroundPattern);
+            updatePattern();
+            showStatus('Pattern updated', 2000);
+        });
+
+        patternOpacitySlider.addEventListener('input', (e) => {
+            config.patternOpacity = e.target.value / 100;
+            localStorage.setItem('patternOpacity', config.patternOpacity);
+            document.getElementById('patternOpacityValue').textContent = e.target.value + '%';
+            patternOverlay.style.opacity = config.patternOpacity;
+        });
+
+        // Fullscreen handling
+        const fullscreenToggle = document.getElementById('fullscreenToggle');
+        let isFullscreen = false;
+
+        function updateFullscreenButton() {
+            if (document.fullscreenElement) {
+                fullscreenToggle.textContent = 'Exit Fullscreen';
+                fullscreenToggle.classList.add('active');
+            } else {
+                fullscreenToggle.textContent = 'Enter Fullscreen';
+                fullscreenToggle.classList.remove('active');
+            }
+        }
+
+        fullscreenToggle.addEventListener('click', async () => {
+            try {
+                if (!document.fullscreenElement) {
+                    await document.documentElement.requestFullscreen();
+                    showStatus('Entered fullscreen mode', 2000);
+                } else {
+                    await document.exitFullscreen();
+                    showStatus('Exited fullscreen mode', 2000);
+                }
+            } catch (error) {
+                console.error('Fullscreen error:', error);
+                showStatus('Fullscreen not supported or blocked', 3000);
+            }
+        });
+
+        // Listen for fullscreen changes
+        document.addEventListener('fullscreenchange', updateFullscreenButton);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+        document.addEventListener('mozfullscreenchange', updateFullscreenButton);
+        document.addEventListener('MSFullscreenChange', updateFullscreenButton);
+
+        // Profile container positioning and sizing
+        const profileContainer = document.getElementById('profileContainer');
+
+        function updateProfileTransform() {
+            // Update size
+            profileImage.style.width = config.imageSize + 'px';
+            profileImage.style.height = config.imageSize + 'px';
+            profilePlaceholder.style.width = config.imageSize + 'px';
+            profilePlaceholder.style.height = config.imageSize + 'px';
+
+            // Update position
+            profileContainer.style.transform = `translate(calc(-50% + ${config.imageX}px), calc(-50% + ${config.imageY}px))`;
+
+            // Save to localStorage
+            localStorage.setItem('imageSize', config.imageSize);
+            localStorage.setItem('imageX', config.imageX);
+            localStorage.setItem('imageY', config.imageY);
+        }
+
+        function loadImageSettings() {
+            const savedSize = localStorage.getItem('imageSize');
+            const savedX = localStorage.getItem('imageX');
+            const savedY = localStorage.getItem('imageY');
+
+            if (savedSize) {
+                config.imageSize = parseInt(savedSize);
+                document.getElementById('imageSizeSlider').value = Math.min(config.imageSize, 1080);
+                document.getElementById('imageSizeInput').value = config.imageSize;
+                document.getElementById('imageSizeValue').textContent = config.imageSize;
+            }
+            if (savedX) {
+                config.imageX = parseInt(savedX);
+                document.getElementById('imageX').value = config.imageX;
+                document.getElementById('imageXValue').textContent = config.imageX;
+            }
+            if (savedY) {
+                config.imageY = parseInt(savedY);
+                document.getElementById('imageY').value = config.imageY;
+                document.getElementById('imageYValue').textContent = config.imageY;
+            }
+
+            updateProfileTransform();
+        }
+
+        // Drag functionality
+        let isDragging = false;
+        let dragStartX, dragStartY;
+        let initialX, initialY;
+
+        profileContainer.addEventListener('mousedown', (e) => {
+            // Don't interfere with controls
+            if (e.target.closest('#controls')) return;
+
+            isDragging = true;
+            profileContainer.classList.add('dragging');
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            initialX = config.imageX;
+            initialY = config.imageY;
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const deltaX = e.clientX - dragStartX;
+            const deltaY = e.clientY - dragStartY;
+
+            config.imageX = initialX + deltaX;
+            config.imageY = initialY + deltaY;
+
+            document.getElementById('imageX').value = config.imageX;
+            document.getElementById('imageY').value = config.imageY;
+            document.getElementById('imageXValue').textContent = config.imageX;
+            document.getElementById('imageYValue').textContent = config.imageY;
+
+            updateProfileTransform();
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                profileContainer.classList.remove('dragging');
+            }
+        });
+
+        // Visualization functions
+        const imageCenterX = () => centerX + config.imageX;
+        const imageCenterY = () => centerY + config.imageY;
+
+        // ORIGINAL VISUALIZATIONS (Image-aware)
+
+        // Original 1. Circular Bars - Radial frequency equalizer
+        function drawCircularBars() {
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const imgCenterX = imageCenterX();
+            const imgCenterY = imageCenterY();
+            const bars = 100;
+            const radius = config.imageSize / 2 + 20;
+            const maxBarHeight = 150;
+
+            for (let i = 0; i < bars; i++) {
+                const dataIndex = Math.floor((i / bars) * bufferLength);
+                const value = dataArray[dataIndex] * config.sensitivity;
+                const barHeight = (value / 255) * maxBarHeight;
+
+                const angle = (i / bars) * Math.PI * 2;
+                const x1 = imgCenterX + Math.cos(angle) * radius;
+                const y1 = imgCenterY + Math.sin(angle) * radius;
+                const x2 = imgCenterX + Math.cos(angle) * (radius + barHeight);
+                const y2 = imgCenterY + Math.sin(angle) * (radius + barHeight);
+
+                const alpha = 0.3 + (barHeight / maxBarHeight) * 0.7;
+                ctx.strokeStyle = hexToRgba(config.color, alpha);
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+        }
+
+        // Original 2. Waveform - Oscilloscope view
+        function drawWaveform() {
+            analyser.getByteTimeDomainData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const sliceWidth = width / bufferLength;
+            const amplitude = 200 * config.sensitivity;
+
+            ctx.strokeStyle = config.color;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+
+            for (let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = (v * amplitude) + centerY;
+                const x = i * sliceWidth;
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+
+            ctx.stroke();
+        }
+
+        // Original 3. Particles - Emanating particle system
+        let particles = [];
+        function drawParticles() {
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+
+            const imgCenterX = imageCenterX();
+            const imgCenterY = imageCenterY();
+
+            const avgVolume = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
+            if (avgVolume > 50 && particles.length < 200) {
+                for (let i = 0; i < 3; i++) {
+                    particles.push({
+                        x: imgCenterX,
+                        y: imgCenterY,
+                        vx: (Math.random() - 0.5) * 5,
+                        vy: (Math.random() - 0.5) * 5,
+                        size: Math.random() * 3 + 1,
+                        life: 1.0
+                    });
+                }
+            }
+
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.01;
+
+                const alpha = p.life * 0.8;
+                ctx.fillStyle = hexToRgba(config.color, alpha);
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                return p.life > 0;
+            });
+        }
+
+        // Original 4. Pulsing Rings - Concentric reactive circles
+        function drawRings() {
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const imgCenterX = imageCenterX();
+            const imgCenterY = imageCenterY();
+
+            const avgVolume = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
+            const scale = 1 + (avgVolume / 255) * config.sensitivity * 0.5;
+            const baseRadius = config.imageSize / 2 + 20;
+
+            for (let i = 0; i < 5; i++) {
+                const radius = baseRadius + i * 40;
+                const scaledRadius = radius * scale;
+                const alpha = 0.6 - i * 0.1;
+
+                ctx.strokeStyle = hexToRgba(config.color, alpha);
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(imgCenterX, imgCenterY, scaledRadius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        // NEW VISUALIZATIONS
+
+        // 1. Bar Chart - Classic vertical frequency bars
+        function drawBarChart() {
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const bars = 64;
+            const barWidth = width / bars;
+            const maxHeight = height / 2;
+
+            for (let i = 0; i < bars; i++) {
+                const dataIndex = Math.floor((i / bars) * bufferLength);
+                const value = dataArray[dataIndex] * config.sensitivity;
+                const barHeight = (value / 255) * maxHeight;
+
+                const x = i * barWidth;
+                const y = height - barHeight;
+
+                const gradient = ctx.createLinearGradient(x, y, x, height);
+                gradient.addColorStop(0, config.color);
+                gradient.addColorStop(1, hexToRgba(config.color, 0.3));
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, y, barWidth - 2, barHeight);
+            }
+        }
+
+        // 2. Line Graph - Frequency line chart
+        function drawLineGraph() {
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const points = 128;
+            const segmentWidth = width / points;
+            const maxHeight = height / 2;
+
+            ctx.strokeStyle = config.color;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+
+            for (let i = 0; i < points; i++) {
+                const dataIndex = Math.floor((i / points) * bufferLength);
+                const value = dataArray[dataIndex] * config.sensitivity;
+                const y = height - (value / 255) * maxHeight;
+                const x = i * segmentWidth;
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+
+            ctx.stroke();
+        }
+
+        // 3. Area Graph - Filled frequency chart
+        function drawAreaGraph() {
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const points = 128;
+            const segmentWidth = width / points;
+            const maxHeight = height / 2;
+
+            // Create gradient
+            const gradient = ctx.createLinearGradient(0, height - maxHeight, 0, height);
+            gradient.addColorStop(0, config.color);
+            gradient.addColorStop(1, hexToRgba(config.color, 0.1));
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.moveTo(0, height);
+
+            for (let i = 0; i < points; i++) {
+                const dataIndex = Math.floor((i / points) * bufferLength);
+                const value = dataArray[dataIndex] * config.sensitivity;
+                const y = height - (value / 255) * maxHeight;
+                const x = i * segmentWidth;
+                ctx.lineTo(x, y);
+            }
+
+            ctx.lineTo(width, height);
+            ctx.closePath();
+            ctx.fill();
+
+            // Add line on top
+            ctx.strokeStyle = config.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < points; i++) {
+                const dataIndex = Math.floor((i / points) * bufferLength);
+                const value = dataArray[dataIndex] * config.sensitivity;
+                const y = height - (value / 255) * maxHeight;
+                const x = i * segmentWidth;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        // 4. Histogram - Grouped frequency bins
+        function drawHistogram() {
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const groups = 16;
+            const binsPerGroup = Math.floor(bufferLength / groups);
+            const barWidth = width / groups;
+            const maxHeight = height / 2;
+
+            for (let i = 0; i < groups; i++) {
+                let sum = 0;
+                for (let j = 0; j < binsPerGroup; j++) {
+                    sum += dataArray[i * binsPerGroup + j];
+                }
+                const avgValue = (sum / binsPerGroup) * config.sensitivity;
+                const barHeight = (avgValue / 255) * maxHeight;
+
+                const x = i * barWidth + 5;
+                const y = height - barHeight;
+
+                ctx.fillStyle = config.color;
+                ctx.fillRect(x, y, barWidth - 10, barHeight);
+
+                // Add outline
+                ctx.strokeStyle = hexToRgba(config.color, 0.5);
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y, barWidth - 10, barHeight);
+            }
+        }
+
+        // 5. Flame Graph - Rising fire particles
+        let flames = [];
+        function drawFlameGraph() {
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+
+            const avgVolume = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
+
+            // Generate flames from bottom
+            if (avgVolume > 30 && flames.length < 300) {
+                for (let i = 0; i < 5; i++) {
+                    const x = Math.random() * width;
+                    flames.push({
+                        x: x,
+                        y: height,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: -2 - Math.random() * 3 - (avgVolume / 50),
+                        size: Math.random() * 4 + 2,
+                        life: 1.0,
+                        hue: Math.random() * 60 // Orange to yellow
+                    });
+                }
+            }
+
+            // Update and draw flames
+            flames = flames.filter(f => {
+                f.x += f.vx;
+                f.y += f.vy;
+                f.life -= 0.01;
+                f.vy -= 0.05; // Rising acceleration
+
+                // Fire colors: red -> orange -> yellow
+                const hue = f.hue + (1 - f.life) * 20;
+                const alpha = f.life * 0.9;
+                const radius = Math.max(0.1, f.size * f.life); // Ensure positive radius
+
+                ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(f.x, f.y, radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                return f.life > 0 && f.y > 0;
+            });
+        }
+
+        // 6. Heatmap / Spectrogram - Color-coded frequency grid
+        let heatmapData = [];
+        function drawHeatmap() {
+            analyser.getByteFrequencyData(dataArray);
+
+            // Add new column
+            heatmapData.push([...dataArray]);
+
+            const maxCols = 100;
+            if (heatmapData.length > maxCols) {
+                heatmapData.shift();
+            }
+
+            ctx.clearRect(0, 0, width, height);
+
+            const cellWidth = width / heatmapData.length;
+            const cellHeight = height / bufferLength;
+
+            for (let col = 0; col < heatmapData.length; col++) {
+                for (let row = 0; row < bufferLength; row++) {
+                    const value = heatmapData[col][row] * config.sensitivity;
+                    const intensity = value / 255;
+
+                    // Color gradient: blue -> green -> yellow -> red
+                    const hue = (1 - intensity) * 240;
+                    ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${intensity})`;
+
+                    const x = col * cellWidth;
+                    const y = height - (row * cellHeight);
+                    ctx.fillRect(x, y, cellWidth, cellHeight);
+                }
+            }
+        }
+
+        // 7. Waterfall Plot - Scrolling spectrogram
+        let waterfallData = [];
+        function drawWaterfall() {
+            analyser.getByteFrequencyData(dataArray);
+
+            // Add new row at top
+            waterfallData.unshift([...dataArray]);
+
+            const maxRows = 150;
+            if (waterfallData.length > maxRows) {
+                waterfallData.pop();
+            }
+
+            ctx.clearRect(0, 0, width, height);
+
+            const cellWidth = width / bufferLength;
+            const cellHeight = height / waterfallData.length;
+
+            for (let row = 0; row < waterfallData.length; row++) {
+                for (let col = 0; col < bufferLength; col++) {
+                    const value = waterfallData[row][col] * config.sensitivity;
+                    const intensity = value / 255;
+
+                    ctx.fillStyle = hexToRgba(config.color, intensity);
+
+                    const x = col * cellWidth;
+                    const y = row * cellHeight;
+                    ctx.fillRect(x, y, cellWidth, cellHeight);
+                }
+            }
+        }
+
+        // 8. Radar / Spider Chart - Circular frequency web
+        function drawRadarChart() {
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const imgCenterX = imageCenterX();
+            const imgCenterY = imageCenterY();
+            const points = 32;
+            const maxRadius = Math.min(width, height) / 3;
+            const baseRadius = config.imageSize / 2 + 20;
+
+            // Draw web lines
+            ctx.strokeStyle = hexToRgba(config.color, 0.2);
+            ctx.lineWidth = 1;
+            for (let i = 0; i < points; i++) {
+                const angle = (i / points) * Math.PI * 2 - Math.PI / 2;
+                ctx.beginPath();
+                ctx.moveTo(imgCenterX, imgCenterY);
+                ctx.lineTo(
+                    imgCenterX + Math.cos(angle) * maxRadius,
+                    imgCenterY + Math.sin(angle) * maxRadius
+                );
+                ctx.stroke();
+            }
+
+            // Draw concentric circles
+            for (let i = 1; i <= 4; i++) {
+                ctx.beginPath();
+                ctx.arc(imgCenterX, imgCenterY, (maxRadius / 4) * i, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Draw frequency data
+            ctx.fillStyle = hexToRgba(config.color, 0.3);
+            ctx.strokeStyle = config.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            for (let i = 0; i < points; i++) {
+                const dataIndex = Math.floor((i / points) * bufferLength);
+                const value = dataArray[dataIndex] * config.sensitivity;
+                const radius = baseRadius + (value / 255) * maxRadius;
+                const angle = (i / points) * Math.PI * 2 - Math.PI / 2;
+
+                const x = imgCenterX + Math.cos(angle) * radius;
+                const y = imgCenterY + Math.sin(angle) * radius;
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        // 9. Donut / Pie Chart - Circular frequency segments
+        function drawDonutChart() {
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const imgCenterX = imageCenterX();
+            const imgCenterY = imageCenterY();
+            const segments = 32;
+            const innerRadius = config.imageSize / 2 + 20;
+            const maxOuterRadius = innerRadius + 150;
+
+            let startAngle = -Math.PI / 2;
+
+            for (let i = 0; i < segments; i++) {
+                const dataIndex = Math.floor((i / segments) * bufferLength);
+                const value = dataArray[dataIndex] * config.sensitivity;
+                const outerRadius = innerRadius + (value / 255) * (maxOuterRadius - innerRadius);
+                const angleSize = (Math.PI * 2) / segments;
+
+                // Color variation
+                const hue = parseInt(config.color.slice(1, 3), 16) / 255 * 360;
+                const colorShift = (i / segments) * 60 - 30;
+                ctx.fillStyle = `hsl(${hue + colorShift}, 70%, ${50 + (value / 255) * 30}%)`;
+
+                ctx.beginPath();
+                ctx.arc(imgCenterX, imgCenterY, outerRadius, startAngle, startAngle + angleSize);
+                ctx.arc(imgCenterX, imgCenterY, innerRadius, startAngle + angleSize, startAngle, true);
+                ctx.closePath();
+                ctx.fill();
+
+                // Outline
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                startAngle += angleSize;
+            }
+        }
+
+        // 10. Bubble Chart - Varying sized bubbles
+        let bubbles = [];
+        function drawBubbleChart() {
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, width, height);
+
+            const imgCenterX = imageCenterX();
+            const imgCenterY = imageCenterY();
+
+            // Update existing bubbles
+            for (let i = 0; i < Math.min(bufferLength / 4, 32); i++) {
+                const value = dataArray[i * 4] * config.sensitivity;
+                const targetSize = (value / 255) * 50 + 10;
+
+                if (bubbles[i]) {
+                    bubbles[i].size += (targetSize - bubbles[i].size) * 0.2;
+                } else {
+                    const angle = (i / 32) * Math.PI * 2;
+                    const distance = 100 + i * 10;
+                    bubbles[i] = {
+                        x: imgCenterX + Math.cos(angle) * distance,
+                        y: imgCenterY + Math.sin(angle) * distance,
+                        size: targetSize,
+                        baseAngle: angle,
+                        baseDistance: distance
+                    };
+                }
+
+                // Slight orbital movement
+                const time = Date.now() / 1000;
+                const angle = bubbles[i].baseAngle + Math.sin(time + i) * 0.3;
+                const distance = bubbles[i].baseDistance + Math.cos(time * 0.5 + i) * 20;
+                const x = imgCenterX + Math.cos(angle) * distance;
+                const y = imgCenterY + Math.sin(angle) * distance;
+
+                // Draw bubble
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, bubbles[i].size);
+                gradient.addColorStop(0, config.color);
+                gradient.addColorStop(1, hexToRgba(config.color, 0.2));
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, bubbles[i].size, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = config.color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        // 11. Streamgraph - Flowing organic curves
+        let streamData = [];
+        function drawStreamGraph() {
+            analyser.getByteFrequencyData(dataArray);
+
+            // Add new data point
+            streamData.push([...dataArray]);
+
+            const maxPoints = 100;
+            if (streamData.length > maxPoints) {
+                streamData.shift();
+            }
+
+            ctx.clearRect(0, 0, width, height);
+
+            const layers = 8;
+            const binsPerLayer = Math.floor(bufferLength / layers);
+            const segmentWidth = width / streamData.length;
+
+            for (let layer = 0; layer < layers; layer++) {
+                const hue = parseInt(config.color.slice(1, 3), 16) / 255 * 360;
+                const colorShift = (layer / layers) * 60 - 30;
+                ctx.fillStyle = `hsla(${hue + colorShift}, 70%, 50%, 0.6)`;
+
+                ctx.beginPath();
+                ctx.moveTo(0, height / 2);
+
+                // Top curve
+                for (let i = 0; i < streamData.length; i++) {
+                    let sum = 0;
+                    for (let j = 0; j < binsPerLayer; j++) {
+                        sum += streamData[i][layer * binsPerLayer + j];
+                    }
+                    const avgValue = (sum / binsPerLayer) * config.sensitivity;
+                    const offset = (avgValue / 255) * 100;
+
+                    const x = i * segmentWidth;
+                    const y = height / 2 - offset - layer * 10;
+                    ctx.lineTo(x, y);
+                }
+
+                // Bottom curve (mirrored)
+                for (let i = streamData.length - 1; i >= 0; i--) {
+                    let sum = 0;
+                    for (let j = 0; j < binsPerLayer; j++) {
+                        sum += streamData[i][layer * binsPerLayer + j];
+                    }
+                    const avgValue = (sum / binsPerLayer) * config.sensitivity;
+                    const offset = (avgValue / 255) * 100;
+
+                    const x = i * segmentWidth;
+                    const y = height / 2 + offset + layer * 10;
+                    ctx.lineTo(x, y);
+                }
+
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        function animate() {
+            if (!config.micEnabled) {
+                ctx.clearRect(0, 0, width, height);
+                return;
+            }
+
+            switch (config.visualizationStyle) {
+                case 'circular':
+                    drawCircularBars();
+                    break;
+                case 'waveform':
+                    drawWaveform();
+                    break;
+                case 'particles':
+                    drawParticles();
+                    break;
+                case 'rings':
+                    drawRings();
+                    break;
+                case 'bar':
+                    drawBarChart();
+                    break;
+                case 'line':
+                    drawLineGraph();
+                    break;
+                case 'area':
+                    drawAreaGraph();
+                    break;
+                case 'histogram':
+                    drawHistogram();
+                    break;
+                case 'flame':
+                    drawFlameGraph();
+                    break;
+                case 'heatmap':
+                    drawHeatmap();
+                    break;
+                case 'waterfall':
+                    drawWaterfall();
+                    break;
+                case 'radar':
+                    drawRadarChart();
+                    break;
+                case 'donut':
+                    drawDonutChart();
+                    break;
+                case 'bubble':
+                    drawBubbleChart();
+                    break;
+                case 'stream':
+                    drawStreamGraph();
+                    break;
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // Controls
+        const controls = document.getElementById('controls');
+        const status = document.getElementById('status');
+        let hideTimeout;
+        let isControlsVisible = false;
+        let isHoveringControls = false;
+
+        function showControls() {
+            controls.classList.add('visible');
+            status.classList.add('visible');
+            document.body.classList.add('show-cursor');
+            isControlsVisible = true;
+
+            clearTimeout(hideTimeout);
+            hideTimeout = setTimeout(() => {
+                // Only hide if not hovering over controls
+                if (!isHoveringControls) {
+                    controls.classList.remove('visible');
+                    status.classList.remove('visible');
+                    document.body.classList.remove('show-cursor');
+                    isControlsVisible = false;
+                }
+            }, 1000);
+        }
+
+        function showStatus(message, duration = 2000) {
+            status.textContent = message;
+            status.classList.add('visible');
+            setTimeout(() => {
+                if (!isControlsVisible) {
+                    status.classList.remove('visible');
+                }
+            }, duration);
+        }
+
+        // Track when mouse enters/leaves controls
+        controls.addEventListener('mouseenter', () => {
+            isHoveringControls = true;
+            clearTimeout(hideTimeout);
+        });
+
+        controls.addEventListener('mouseleave', () => {
+            isHoveringControls = false;
+            // Restart hide timer when leaving controls
+            hideTimeout = setTimeout(() => {
+                controls.classList.remove('visible');
+                status.classList.remove('visible');
+                document.body.classList.remove('show-cursor');
+                isControlsVisible = false;
+            }, 1000);
+        });
+
+        document.addEventListener('mousemove', showControls);
+        document.addEventListener('keydown', showControls);
+
+        // Control inputs
+        document.getElementById('sensitivity').addEventListener('input', (e) => {
+            config.sensitivity = e.target.value / 100;
+            document.getElementById('sensitivityValue').textContent = e.target.value + '%';
+        });
+
+        document.getElementById('smoothing').addEventListener('input', (e) => {
+            const value = e.target.value / 100;
+            config.smoothing = value;
+            if (analyser) {
+                analyser.smoothingTimeConstant = value;
+            }
+            document.getElementById('smoothingValue').textContent = e.target.value + '%';
+        });
+
+        document.getElementById('colorPicker').addEventListener('input', (e) => {
+            config.color = e.target.value;
+        });
+
+        document.getElementById('visualizationStyle').addEventListener('change', (e) => {
+            config.visualizationStyle = e.target.value;
+            // Reset state arrays when changing style
+            particles = [];
+            flames = [];
+            heatmapData = [];
+            waterfallData = [];
+            bubbles = [];
+            streamData = [];
+        });
+
+        // Image controls
+        document.getElementById('imageSizeSlider').addEventListener('input', (e) => {
+            config.imageSize = parseInt(e.target.value);
+            document.getElementById('imageSizeValue').textContent = config.imageSize;
+            document.getElementById('imageSizeInput').value = config.imageSize;
+            updateProfileTransform();
+        });
+
+        document.getElementById('imageSizeInput').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value) || 10;
+            config.imageSize = Math.max(10, Math.min(value, 5000));
+            document.getElementById('imageSizeValue').textContent = config.imageSize;
+            document.getElementById('imageSizeSlider').value = Math.min(config.imageSize, 1080);
+            updateProfileTransform();
+        });
+
+        document.getElementById('imageX').addEventListener('input', (e) => {
+            config.imageX = parseInt(e.target.value);
+            document.getElementById('imageXValue').textContent = config.imageX;
+            updateProfileTransform();
+        });
+
+        document.getElementById('imageY').addEventListener('input', (e) => {
+            config.imageY = parseInt(e.target.value);
+            document.getElementById('imageYValue').textContent = config.imageY;
+            updateProfileTransform();
+        });
+
+        document.getElementById('resetPosition').addEventListener('click', () => {
+            config.imageSize = 200;
+            config.imageX = 0;
+            config.imageY = 0;
+
+            document.getElementById('imageSizeSlider').value = 200;
+            document.getElementById('imageSizeInput').value = 200;
+            document.getElementById('imageX').value = 0;
+            document.getElementById('imageY').value = 0;
+
+            document.getElementById('imageSizeValue').textContent = '200';
+            document.getElementById('imageXValue').textContent = '0';
+            document.getElementById('imageYValue').textContent = '0';
+
+            updateProfileTransform();
+            showStatus('Position and size reset', 2000);
+        });
+
+        const micToggle = document.getElementById('micToggle');
+        micToggle.addEventListener('click', () => {
+            config.micEnabled = !config.micEnabled;
+            micToggle.textContent = config.micEnabled ? 'Microphone: ON' : 'Microphone: OFF';
+            micToggle.classList.toggle('active');
+
+            if (config.micEnabled && audioContext) {
+                animate();
+            } else {
+                cancelAnimationFrame(animationId);
+                ctx.clearRect(0, 0, width, height);
+            }
+        });
+
+        // Utility function
+        function hexToRgba(hex, alpha) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        // Initialize
+        loadSavedImage();
+        loadImageSettings();
+        loadSavedBackground();
+        loadSavedPattern();
+        showStatus('Press any key or move mouse to show controls', 3000);
+
+        // Auto-start microphone after a short delay
+        setTimeout(() => {
+            initAudio();
+        }, 500);
+    </script>
+</body>
+</html>
