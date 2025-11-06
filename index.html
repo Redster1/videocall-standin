@@ -627,39 +627,24 @@
         const patternOpacitySlider = document.getElementById('patternOpacity');
 
         function generateHexagonPattern() {
-            const s = 15; // side length
+            const s = 20; // side length
             const h = s * Math.sqrt(3); // height (flat to flat)
-            const w = s * 2; // width (point to point)
-
-            // For proper tessellation of flat-top hexagons:
-            // Horizontal spacing between centers = 1.5s
-            // Vertical spacing between centers = h
-            const patternWidth = s * 3; // fits 2 hexagons with offset
-            const patternHeight = h * 2; // fits 2 rows
+            const patternWidth = s * 3; // horizontal repeat distance
+            const patternHeight = h; // vertical repeat distance
 
             const svg = `
                 <svg width="${patternWidth}" height="${patternHeight}" xmlns="http://www.w3.org/2000/svg">
                     <defs>
                         <pattern id="hexagons" width="${patternWidth}" height="${patternHeight}" patternUnits="userSpaceOnUse">
-                            <!-- Row 1, Col 1: center at (s, h/2) -->
-                            <polygon points="${s * 0.5},0 ${s * 1.5},0 ${w},${h / 2} ${s * 1.5},${h} ${s * 0.5},${h} 0,${h / 2}"
-                                     fill="none" stroke="white" stroke-width="1"/>
-                            <!-- Row 1, Col 2: center at (2.5s, h/2) - wraps to right -->
-                            <polygon points="${s * 2},0 ${s * 3},0 ${s * 3.5},${h / 2} ${s * 3},${h} ${s * 2},${h} ${s * 1.5},${h / 2}"
-                                     fill="none" stroke="white" stroke-width="1"/>
-                            <!-- Row 1, Col 2 wrap: left part of hexagon wrapping from right -->
-                            <polygon points="${s * -0.5},0 ${s * 0.5},0 ${s},${h / 2} ${s * 0.5},${h} ${s * -0.5},${h} ${s * -1},${h / 2}"
-                                     fill="none" stroke="white" stroke-width="1"/>
-
-                            <!-- Row 2, Col 1: center at (1.75s, 1.5h) -->
-                            <polygon points="${s * 1.25},${h} ${s * 2.25},${h} ${s * 2.75},${h * 1.5} ${s * 2.25},${h * 2} ${s * 1.25},${h * 2} ${s * 0.75},${h * 1.5}"
-                                     fill="none" stroke="white" stroke-width="1"/>
-                            <!-- Row 2, Col 0: center at (-0.75s, 1.5h) - wraps from left -->
-                            <polygon points="${s * -1.25},${h} ${s * -0.25},${h} ${s * 0.25},${h * 1.5} ${s * -0.25},${h * 2} ${s * -1.25},${h * 2} ${s * -1.75},${h * 1.5}"
-                                     fill="none" stroke="white" stroke-width="1"/>
-                            <!-- Row 2, Col 2: center at (4.25s, 1.5h) - wraps to right -->
-                            <polygon points="${s * 3.75},${h} ${s * 4.75},${h} ${s * 5.25},${h * 1.5} ${s * 4.75},${h * 2} ${s * 3.75},${h * 2} ${s * 3.25},${h * 1.5}"
-                                     fill="none" stroke="white" stroke-width="1"/>
+                            <!-- Hexagon 1: center at (s, h/2) -->
+                            <polygon points="${s * 0.5},0 ${s * 1.5},0 ${s * 2},${h * 0.5} ${s * 1.5},${h} ${s * 0.5},${h} 0,${h * 0.5}"
+                                     fill="none" stroke="white" stroke-width="1.5"/>
+                            <!-- Hexagon 2: center at (2.5s, h/2) extends past right edge -->
+                            <polygon points="${s * 2},0 ${s * 3},0 ${s * 3.5},${h * 0.5} ${s * 3},${h} ${s * 2},${h} ${s * 1.5},${h * 0.5}"
+                                     fill="none" stroke="white" stroke-width="1.5"/>
+                            <!-- Wrap-around hexagon for right edge: center at (-0.5s, h/2) -->
+                            <polygon points="${s * -1},0 ${s * 0},0 ${s * 0.5},${h * 0.5} ${s * 0},${h} ${s * -1},${h} ${s * -1.5},${h * 0.5}"
+                                     fill="none" stroke="white" stroke-width="1.5"/>
                         </pattern>
                     </defs>
                     <rect width="100%" height="100%" fill="url(#hexagons)"/>
