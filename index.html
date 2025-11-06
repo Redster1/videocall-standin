@@ -37,7 +37,17 @@
             left: 50%;
             transform: translate(-50%, -50%);
             z-index: 10;
-            pointer-events: none;
+            pointer-events: auto;
+            cursor: grab;
+            transition: none;
+        }
+
+        #profileContainer.dragging {
+            cursor: grabbing;
+        }
+
+        #profileContainer.no-transition {
+            transition: none;
         }
 
         #profileImage {
@@ -286,6 +296,34 @@
         </div>
 
         <div class="control-group">
+            <label>
+                Image Size
+                <span class="value-display" id="imageSizeValue">200px</span>
+            </label>
+            <input type="range" id="imageSize" min="50" max="500" value="200">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Horizontal Position
+                <span class="value-display" id="imageXValue">0</span>
+            </label>
+            <input type="range" id="imageX" min="-800" max="800" value="0">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Vertical Position
+                <span class="value-display" id="imageYValue">0</span>
+            </label>
+            <input type="range" id="imageY" min="-500" max="500" value="0">
+        </div>
+
+        <div class="control-group">
+            <button id="resetPosition">Reset Position & Size</button>
+        </div>
+
+        <div class="control-group">
             <label>Visualization Style</label>
             <select id="visualizationStyle">
                 <option value="circular">Circular Bars</option>
@@ -330,7 +368,10 @@
             smoothing: 0.8,
             color: '#667eea',
             visualizationStyle: 'circular',
-            micEnabled: true
+            micEnabled: true,
+            imageSize: 200,
+            imageX: 0,
+            imageY: 0
         };
 
         // Canvas setup
@@ -436,6 +477,91 @@
             localStorage.removeItem('profileImage');
             imageUpload.value = '';
             showStatus('Photo removed', 2000);
+        });
+
+        // Profile container positioning and sizing
+        const profileContainer = document.getElementById('profileContainer');
+
+        function updateProfileTransform() {
+            // Update size
+            profileImage.style.width = config.imageSize + 'px';
+            profileImage.style.height = config.imageSize + 'px';
+            profilePlaceholder.style.width = config.imageSize + 'px';
+            profilePlaceholder.style.height = config.imageSize + 'px';
+
+            // Update position
+            profileContainer.style.transform = `translate(calc(-50% + ${config.imageX}px), calc(-50% + ${config.imageY}px))`;
+
+            // Save to localStorage
+            localStorage.setItem('imageSize', config.imageSize);
+            localStorage.setItem('imageX', config.imageX);
+            localStorage.setItem('imageY', config.imageY);
+        }
+
+        function loadImageSettings() {
+            const savedSize = localStorage.getItem('imageSize');
+            const savedX = localStorage.getItem('imageX');
+            const savedY = localStorage.getItem('imageY');
+
+            if (savedSize) {
+                config.imageSize = parseInt(savedSize);
+                document.getElementById('imageSize').value = config.imageSize;
+                document.getElementById('imageSizeValue').textContent = config.imageSize + 'px';
+            }
+            if (savedX) {
+                config.imageX = parseInt(savedX);
+                document.getElementById('imageX').value = config.imageX;
+                document.getElementById('imageXValue').textContent = config.imageX;
+            }
+            if (savedY) {
+                config.imageY = parseInt(savedY);
+                document.getElementById('imageY').value = config.imageY;
+                document.getElementById('imageYValue').textContent = config.imageY;
+            }
+
+            updateProfileTransform();
+        }
+
+        // Drag functionality
+        let isDragging = false;
+        let dragStartX, dragStartY;
+        let initialX, initialY;
+
+        profileContainer.addEventListener('mousedown', (e) => {
+            // Don't interfere with controls
+            if (e.target.closest('#controls')) return;
+
+            isDragging = true;
+            profileContainer.classList.add('dragging');
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            initialX = config.imageX;
+            initialY = config.imageY;
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const deltaX = e.clientX - dragStartX;
+            const deltaY = e.clientY - dragStartY;
+
+            config.imageX = initialX + deltaX;
+            config.imageY = initialY + deltaY;
+
+            document.getElementById('imageX').value = config.imageX;
+            document.getElementById('imageY').value = config.imageY;
+            document.getElementById('imageXValue').textContent = config.imageX;
+            document.getElementById('imageYValue').textContent = config.imageY;
+
+            updateProfileTransform();
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                profileContainer.classList.remove('dragging');
+            }
         });
 
         // Visualization functions
@@ -600,7 +726,7 @@
                 status.classList.remove('visible');
                 document.body.classList.remove('show-cursor');
                 isControlsVisible = false;
-            }, 3000);
+            }, 1000);
         }
 
         function showStatus(message, duration = 2000) {
@@ -640,6 +766,42 @@
             particles = []; // Reset particles when changing style
         });
 
+        // Image controls
+        document.getElementById('imageSize').addEventListener('input', (e) => {
+            config.imageSize = parseInt(e.target.value);
+            document.getElementById('imageSizeValue').textContent = config.imageSize + 'px';
+            updateProfileTransform();
+        });
+
+        document.getElementById('imageX').addEventListener('input', (e) => {
+            config.imageX = parseInt(e.target.value);
+            document.getElementById('imageXValue').textContent = config.imageX;
+            updateProfileTransform();
+        });
+
+        document.getElementById('imageY').addEventListener('input', (e) => {
+            config.imageY = parseInt(e.target.value);
+            document.getElementById('imageYValue').textContent = config.imageY;
+            updateProfileTransform();
+        });
+
+        document.getElementById('resetPosition').addEventListener('click', () => {
+            config.imageSize = 200;
+            config.imageX = 0;
+            config.imageY = 0;
+
+            document.getElementById('imageSize').value = 200;
+            document.getElementById('imageX').value = 0;
+            document.getElementById('imageY').value = 0;
+
+            document.getElementById('imageSizeValue').textContent = '200px';
+            document.getElementById('imageXValue').textContent = '0';
+            document.getElementById('imageYValue').textContent = '0';
+
+            updateProfileTransform();
+            showStatus('Position and size reset', 2000);
+        });
+
         const micToggle = document.getElementById('micToggle');
         micToggle.addEventListener('click', () => {
             config.micEnabled = !config.micEnabled;
@@ -664,6 +826,7 @@
 
         // Initialize
         loadSavedImage();
+        loadImageSettings();
         showStatus('Press any key or move mouse to show controls', 3000);
 
         // Auto-start microphone after a short delay
