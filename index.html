@@ -297,10 +297,11 @@
 
         <div class="control-group">
             <label>
-                Image Size
-                <span class="value-display" id="imageSizeValue">200px</span>
+                Image Size (px)
+                <span class="value-display" id="imageSizeValue">200</span>
             </label>
-            <input type="range" id="imageSize" min="50" max="500" value="200">
+            <input type="range" id="imageSizeSlider" min="50" max="1080" value="200">
+            <input type="number" id="imageSizeInput" min="10" max="5000" value="200" style="width: 100%; margin-top: 8px; padding: 8px; background: rgba(255, 255, 255, 0.05); color: white; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; font-size: 13px;">
         </div>
 
         <div class="control-group">
@@ -505,8 +506,9 @@
 
             if (savedSize) {
                 config.imageSize = parseInt(savedSize);
-                document.getElementById('imageSize').value = config.imageSize;
-                document.getElementById('imageSizeValue').textContent = config.imageSize + 'px';
+                document.getElementById('imageSizeSlider').value = Math.min(config.imageSize, 1080);
+                document.getElementById('imageSizeInput').value = config.imageSize;
+                document.getElementById('imageSizeValue').textContent = config.imageSize;
             }
             if (savedX) {
                 config.imageX = parseInt(savedX);
@@ -570,8 +572,12 @@
 
             ctx.clearRect(0, 0, width, height);
 
+            // Calculate image center position
+            const imageCenterX = centerX + config.imageX;
+            const imageCenterY = centerY + config.imageY;
+
             const bars = 100;
-            const radius = 140;
+            const radius = config.imageSize / 2 + 20; // Inner radius based on image size + margin
             const maxBarHeight = 150;
 
             for (let i = 0; i < bars; i++) {
@@ -580,10 +586,10 @@
                 const barHeight = (value / 255) * maxBarHeight;
 
                 const angle = (i / bars) * Math.PI * 2;
-                const x1 = centerX + Math.cos(angle) * radius;
-                const y1 = centerY + Math.sin(angle) * radius;
-                const x2 = centerX + Math.cos(angle) * (radius + barHeight);
-                const y2 = centerY + Math.sin(angle) * (radius + barHeight);
+                const x1 = imageCenterX + Math.cos(angle) * radius;
+                const y1 = imageCenterY + Math.sin(angle) * radius;
+                const x2 = imageCenterX + Math.cos(angle) * (radius + barHeight);
+                const y2 = imageCenterY + Math.sin(angle) * (radius + barHeight);
 
                 const alpha = 0.3 + (barHeight / maxBarHeight) * 0.7;
                 ctx.strokeStyle = hexToRgba(config.color, alpha);
@@ -632,13 +638,17 @@
             ctx.fillStyle = 'rgba(10, 10, 10, 0.1)';
             ctx.fillRect(0, 0, width, height);
 
+            // Calculate image center position
+            const imageCenterX = centerX + config.imageX;
+            const imageCenterY = centerY + config.imageY;
+
             // Generate new particles based on audio
             const avgVolume = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
             if (avgVolume > 50 && particles.length < 200) {
                 for (let i = 0; i < 3; i++) {
                     particles.push({
-                        x: centerX,
-                        y: centerY,
+                        x: imageCenterX,
+                        y: imageCenterY,
                         vx: (Math.random() - 0.5) * 5,
                         vy: (Math.random() - 0.5) * 5,
                         size: Math.random() * 3 + 1,
@@ -668,18 +678,23 @@
 
             ctx.clearRect(0, 0, width, height);
 
+            // Calculate image center position
+            const imageCenterX = centerX + config.imageX;
+            const imageCenterY = centerY + config.imageY;
+
             const avgVolume = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
             const scale = 1 + (avgVolume / 255) * config.sensitivity * 0.5;
+            const baseRadius = config.imageSize / 2 + 20; // Start just outside the image
 
             for (let i = 0; i < 5; i++) {
-                const radius = 100 + i * 40;
+                const radius = baseRadius + i * 40;
                 const scaledRadius = radius * scale;
                 const alpha = 0.6 - i * 0.1;
 
                 ctx.strokeStyle = hexToRgba(config.color, alpha);
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.arc(centerX, centerY, scaledRadius, 0, Math.PI * 2);
+                ctx.arc(imageCenterX, imageCenterY, scaledRadius, 0, Math.PI * 2);
                 ctx.stroke();
             }
         }
@@ -767,9 +782,18 @@
         });
 
         // Image controls
-        document.getElementById('imageSize').addEventListener('input', (e) => {
+        document.getElementById('imageSizeSlider').addEventListener('input', (e) => {
             config.imageSize = parseInt(e.target.value);
-            document.getElementById('imageSizeValue').textContent = config.imageSize + 'px';
+            document.getElementById('imageSizeValue').textContent = config.imageSize;
+            document.getElementById('imageSizeInput').value = config.imageSize;
+            updateProfileTransform();
+        });
+
+        document.getElementById('imageSizeInput').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value) || 10;
+            config.imageSize = Math.max(10, Math.min(value, 5000));
+            document.getElementById('imageSizeValue').textContent = config.imageSize;
+            document.getElementById('imageSizeSlider').value = Math.min(config.imageSize, 1080);
             updateProfileTransform();
         });
 
@@ -790,11 +814,12 @@
             config.imageX = 0;
             config.imageY = 0;
 
-            document.getElementById('imageSize').value = 200;
+            document.getElementById('imageSizeSlider').value = 200;
+            document.getElementById('imageSizeInput').value = 200;
             document.getElementById('imageX').value = 0;
             document.getElementById('imageY').value = 0;
 
-            document.getElementById('imageSizeValue').textContent = '200px';
+            document.getElementById('imageSizeValue').textContent = '200';
             document.getElementById('imageXValue').textContent = '0';
             document.getElementById('imageYValue').textContent = '0';
 
