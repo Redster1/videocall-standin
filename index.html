@@ -659,21 +659,21 @@
         }
 
         function generateTrianglePattern() {
-            const w = 60; // base width of each triangle
+            const w = 60; // base width of each equilateral triangle
             const h = w * Math.sqrt(3) / 2; // height of equilateral triangle
             const patternWidth = w;
-            const patternHeight = h;
+            const patternHeight = h * 2; // need 2x height for up+down triangles
 
             const svg = `
                 <svg width="${patternWidth}" height="${patternHeight}" xmlns="http://www.w3.org/2000/svg">
                     <defs>
                         <pattern id="triangles" width="${patternWidth}" height="${patternHeight}" patternUnits="userSpaceOnUse">
-                            <!-- Upward pointing triangle (▲) - base at bottom -->
+                            <!-- Upward pointing triangle (▲) - base at y=h, peak at y=0 -->
                             <polygon points="0,${h} ${w/2},0 ${w},${h}"
                                      fill="none" stroke="white" stroke-width="2"/>
 
-                            <!-- Downward pointing triangle (▼) - base at top -->
-                            <polygon points="0,0 ${w/2},${h} ${w},0"
+                            <!-- Downward pointing triangle (▼) - base at y=h, peak at y=2h -->
+                            <polygon points="0,${h} ${w/2},${h*2} ${w},${h}"
                                      fill="none" stroke="white" stroke-width="2"/>
                         </pattern>
                     </defs>
