@@ -627,17 +627,19 @@
         const patternOpacitySlider = document.getElementById('patternOpacity');
 
         function generateHexagonPattern() {
-            const size = 30;
-            const w = size * 2;
-            const h = size * Math.sqrt(3);
+            const s = 20; // side length
+            const w = s * 2; // width
+            const h = s * Math.sqrt(3); // height
             const svg = `
-                <svg width="${w * 1.5}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+                <svg width="${w * 1.5}" height="${h * 2}" xmlns="http://www.w3.org/2000/svg">
                     <defs>
-                        <pattern id="hexagons" width="${w * 1.5}" height="${h}" patternUnits="userSpaceOnUse">
-                            <path d="M${size},0 L${size * 2},${h / 4} L${size * 2},${3 * h / 4} L${size},${h} L0,${3 * h / 4} L0,${h / 4} Z"
-                                  fill="none" stroke="white" stroke-width="1.5"/>
-                            <path d="M${size + w * 0.75},${h / 2} L${size * 2 + w * 0.75},${h / 4 + h / 2} L${size * 2 + w * 0.75},${3 * h / 4 + h / 2} L${size + w * 0.75},${h + h / 2} L${w * 0.75},${3 * h / 4 + h / 2} L${w * 0.75},${h / 4 + h / 2} Z"
-                                  fill="none" stroke="white" stroke-width="1.5"/>
+                        <pattern id="hexagons" width="${w * 1.5}" height="${h * 2}" patternUnits="userSpaceOnUse">
+                            <polygon points="${s * 0.5},0 ${s * 1.5},0 ${s * 2},${h / 2} ${s * 1.5},${h} ${s * 0.5},${h} 0,${h / 2}"
+                                     fill="none" stroke="white" stroke-width="1.5"/>
+                            <polygon points="${s * 0.5 + w * 1.5},0 ${s * 1.5 + w * 1.5},0 ${s * 2 + w * 1.5},${h / 2} ${s * 1.5 + w * 1.5},${h} ${s * 0.5 + w * 1.5},${h} ${w * 1.5},${h / 2}"
+                                     fill="none" stroke="white" stroke-width="1.5"/>
+                            <polygon points="${s * 0.5 + w * 0.75},${h} ${s * 1.5 + w * 0.75},${h} ${s * 2 + w * 0.75},${h + h / 2} ${s * 1.5 + w * 0.75},${h * 2} ${s * 0.5 + w * 0.75},${h * 2} ${w * 0.75},${h + h / 2}"
+                                     fill="none" stroke="white" stroke-width="1.5"/>
                         </pattern>
                     </defs>
                     <rect width="100%" height="100%" fill="url(#hexagons)"/>
@@ -1091,8 +1093,7 @@
 
             const bars = 64;
             const barWidth = width / bars;
-            const bottomPadding = 50;
-            const maxHeight = (height - bottomPadding) / 2;
+            const maxHeight = height / 2;
 
             for (let i = 0; i < bars; i++) {
                 const dataIndex = Math.floor((i / bars) * bufferLength);
@@ -1100,9 +1101,9 @@
                 const barHeight = (value / 255) * maxHeight;
 
                 const x = i * barWidth;
-                const y = height - bottomPadding - barHeight;
+                const y = height - barHeight;
 
-                const gradient = ctx.createLinearGradient(x, y, x, height - bottomPadding);
+                const gradient = ctx.createLinearGradient(x, y, x, height);
                 gradient.addColorStop(0, config.color);
                 gradient.addColorStop(1, hexToRgba(config.color, 0.3));
 
@@ -1226,17 +1227,15 @@
             ctx.fillStyle = 'rgba(10, 10, 10, 0.1)';
             ctx.fillRect(0, 0, width, height);
 
-            const bottomPadding = 50;
-            const floorY = height - bottomPadding;
             const avgVolume = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
 
-            // Generate flames from bottom (above padding)
+            // Generate flames from bottom
             if (avgVolume > 30 && flames.length < 300) {
                 for (let i = 0; i < 5; i++) {
                     const x = Math.random() * width;
                     flames.push({
                         x: x,
-                        y: floorY,
+                        y: height,
                         vx: (Math.random() - 0.5) * 2,
                         vy: -2 - Math.random() * 3 - (avgVolume / 50),
                         size: Math.random() * 4 + 2,
