@@ -28,7 +28,7 @@
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: #0a0a0a;
+            background: #1a1a2e;
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -99,7 +99,27 @@
             transition: opacity 0.3s ease;
             z-index: 100;
             min-width: 280px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
             border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #controls::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #controls::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        #controls::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 4px;
+        }
+
+        #controls::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.7);
         }
 
         #controls.visible {
@@ -379,7 +399,7 @@
 
         <div class="control-group">
             <label>Background Color</label>
-            <input type="color" id="backgroundColorPicker" value="#0a0a0a">
+            <input type="color" id="backgroundColorPicker" value="#1a1a2e">
         </div>
 
         <div class="control-group">
@@ -423,7 +443,7 @@
             imageSize: 200,
             imageX: 0,
             imageY: 0,
-            backgroundColor: '#0a0a0a',
+            backgroundColor: '#1a1a2e',
             backgroundImage: null,
             backgroundPattern: 'none',
             patternOpacity: 0.15
@@ -1094,9 +1114,11 @@
                 // Fire colors: red -> orange -> yellow
                 const hue = f.hue + (1 - f.life) * 20;
                 const alpha = f.life * 0.9;
+                const radius = Math.max(0.1, f.size * f.life); // Ensure positive radius
+
                 ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${alpha})`;
                 ctx.beginPath();
-                ctx.arc(f.x, f.y, f.size * f.life, 0, Math.PI * 2);
+                ctx.arc(f.x, f.y, radius, 0, Math.PI * 2);
                 ctx.fill();
 
                 return f.life > 0 && f.y > 0;
