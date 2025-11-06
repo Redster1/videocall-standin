@@ -284,6 +284,7 @@
 </head>
 <body>
     <canvas id="canvas"></canvas>
+    <div id="patternOverlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1; opacity: 0.15;"></div>
 
     <div id="profileContainer">
         <img id="profileImage" alt="Profile">
@@ -382,6 +383,29 @@
         </div>
 
         <div class="control-group">
+            <label>Background Pattern</label>
+            <select id="backgroundPattern">
+                <option value="none">None</option>
+                <option value="hexagons">Hexagons</option>
+                <option value="triangles">Triangles</option>
+                <option value="grid">Grid</option>
+                <option value="dots">Dot Grid</option>
+                <option value="circles">Circles</option>
+                <option value="waves">Waves</option>
+                <option value="stripes">Diagonal Stripes</option>
+                <option value="crosshatch">Crosshatch</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>
+                Pattern Opacity
+                <span class="value-display" id="patternOpacityValue">15%</span>
+            </label>
+            <input type="range" id="patternOpacity" min="0" max="50" value="15">
+        </div>
+
+        <div class="control-group">
             <button id="fullscreenToggle">Enter Fullscreen</button>
         </div>
     </div>
@@ -400,7 +424,9 @@
             imageX: 0,
             imageY: 0,
             backgroundColor: '#0a0a0a',
-            backgroundImage: null
+            backgroundImage: null,
+            backgroundPattern: 'none',
+            patternOpacity: 0.15
         };
 
         // Canvas setup
@@ -569,6 +595,209 @@
             if (!config.backgroundImage) {
                 updateBackground();
             }
+        });
+
+        // Background pattern generation
+        const patternOverlay = document.getElementById('patternOverlay');
+        const backgroundPatternSelect = document.getElementById('backgroundPattern');
+        const patternOpacitySlider = document.getElementById('patternOpacity');
+
+        function generateHexagonPattern() {
+            const size = 40;
+            const svg = `
+                <svg width="${size * 2}" height="${size * 2}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="hexagons" width="${size * 1.5}" height="${size * Math.sqrt(3)}" patternUnits="userSpaceOnUse">
+                            <path d="M${size / 2},0 L${size},${size * Math.sqrt(3) / 4} L${size},${size * 3 * Math.sqrt(3) / 4} L${size / 2},${size * Math.sqrt(3)} L0,${size * 3 * Math.sqrt(3) / 4} L0,${size * Math.sqrt(3) / 4} Z"
+                                  fill="none" stroke="white" stroke-width="2"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#hexagons)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateTrianglePattern() {
+            const size = 50;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="triangles" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+                            <path d="M0,${size} L${size / 2},0 L${size},${size} Z" fill="none" stroke="white" stroke-width="2"/>
+                            <path d="M${size / 2},0 L${size},${size} L${size * 1.5},0" fill="none" stroke="white" stroke-width="2"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#triangles)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateGridPattern() {
+            const size = 40;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="grid" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+                            <line x1="0" y1="0" x2="${size}" y2="0" stroke="white" stroke-width="1"/>
+                            <line x1="0" y1="0" x2="0" y2="${size}" stroke="white" stroke-width="1"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#grid)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateDotGridPattern() {
+            const size = 30;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="dots" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+                            <circle cx="${size / 2}" cy="${size / 2}" r="2" fill="white"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#dots)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateCirclePattern() {
+            const size = 60;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="circles" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+                            <circle cx="${size / 2}" cy="${size / 2}" r="${size / 3}" fill="none" stroke="white" stroke-width="2"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#circles)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateWavePattern() {
+            const size = 80;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="waves" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+                            <path d="M0,${size / 2} Q${size / 4},${size / 4} ${size / 2},${size / 2} T${size},${size / 2}"
+                                  fill="none" stroke="white" stroke-width="2"/>
+                            <path d="M0,${size} Q${size / 4},${size * 0.75} ${size / 2},${size} T${size},${size}"
+                                  fill="none" stroke="white" stroke-width="2"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#waves)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateStripesPattern() {
+            const size = 40;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="stripes" width="${size}" height="${size}" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                            <line x1="0" y1="0" x2="0" y2="${size}" stroke="white" stroke-width="2"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#stripes)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function generateCrosshatchPattern() {
+            const size = 40;
+            const svg = `
+                <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="crosshatch" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+                            <line x1="0" y1="0" x2="${size}" y2="${size}" stroke="white" stroke-width="1"/>
+                            <line x1="${size}" y1="0" x2="0" y2="${size}" stroke="white" stroke-width="1"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#crosshatch)"/>
+                </svg>
+            `;
+            return 'data:image/svg+xml;base64,' + btoa(svg);
+        }
+
+        function updatePattern() {
+            const pattern = config.backgroundPattern;
+
+            if (pattern === 'none') {
+                patternOverlay.style.backgroundImage = '';
+                return;
+            }
+
+            let patternUrl;
+            switch (pattern) {
+                case 'hexagons':
+                    patternUrl = generateHexagonPattern();
+                    break;
+                case 'triangles':
+                    patternUrl = generateTrianglePattern();
+                    break;
+                case 'grid':
+                    patternUrl = generateGridPattern();
+                    break;
+                case 'dots':
+                    patternUrl = generateDotGridPattern();
+                    break;
+                case 'circles':
+                    patternUrl = generateCirclePattern();
+                    break;
+                case 'waves':
+                    patternUrl = generateWavePattern();
+                    break;
+                case 'stripes':
+                    patternUrl = generateStripesPattern();
+                    break;
+                case 'crosshatch':
+                    patternUrl = generateCrosshatchPattern();
+                    break;
+            }
+
+            patternOverlay.style.backgroundImage = `url("${patternUrl}")`;
+            patternOverlay.style.opacity = config.patternOpacity;
+        }
+
+        function loadSavedPattern() {
+            const savedPattern = localStorage.getItem('backgroundPattern');
+            const savedOpacity = localStorage.getItem('patternOpacity');
+
+            if (savedPattern) {
+                config.backgroundPattern = savedPattern;
+                backgroundPatternSelect.value = savedPattern;
+            }
+            if (savedOpacity) {
+                config.patternOpacity = parseFloat(savedOpacity);
+                patternOpacitySlider.value = config.patternOpacity * 100;
+                document.getElementById('patternOpacityValue').textContent = Math.round(config.patternOpacity * 100) + '%';
+            }
+
+            updatePattern();
+        }
+
+        backgroundPatternSelect.addEventListener('change', (e) => {
+            config.backgroundPattern = e.target.value;
+            localStorage.setItem('backgroundPattern', config.backgroundPattern);
+            updatePattern();
+            showStatus('Pattern updated', 2000);
+        });
+
+        patternOpacitySlider.addEventListener('input', (e) => {
+            config.patternOpacity = e.target.value / 100;
+            localStorage.setItem('patternOpacity', config.patternOpacity);
+            document.getElementById('patternOpacityValue').textContent = e.target.value + '%';
+            patternOverlay.style.opacity = config.patternOpacity;
         });
 
         // Fullscreen handling
@@ -1326,6 +1555,7 @@
         loadSavedImage();
         loadImageSettings();
         loadSavedBackground();
+        loadSavedPattern();
         showStatus('Press any key or move mouse to show controls', 3000);
 
         // Auto-start microphone after a short delay
